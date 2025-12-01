@@ -43,35 +43,58 @@ async function retry(fn, attempts = RETRY_ATTEMPTS, delayMs = RETRY_DELAY_MS) {
 // /api/futures/global-long-short-account-ratio/history -> long/short account ratio history
 // We'll try two endpoints: global long/short and funding-rate exchange list
 
+// --- replace fetchFundingRate ---
 async function fetchFundingRate(symbol) {
   try {
     const url = `/api/futures/funding-rate/exchange-list?symbol=${encodeURIComponent(symbol)}`;
     const r = await retry(() => axiosCoinglass.get(url));
-    // r.data.data has array with funding info per exchange for the symbol
-    // We'll take average funding_rate across exchanges (if present) as a proxy
-    const arr = (r.data && r.data.data && r.data.data[0] && r.data.data[0].stablecoin_margin_list) || [];
-    if (!arr.length) return null;
-    const sum = arr.reduce((s, it) => s + (Number(it.funding_rate) || 0), 0);
-    return sum / arr.length;
+    console.log('DEBUG funding response', symbol, JSON.stringify(r.data).slice(0,2000));
+    const raw = r.data || {};
+    let arr = [];
+    if (raw.data && Array.isArray(raw.data) && raw.data.length && raw.data[0].stablecoin_margin_list) {
+      arr = raw.data[0].stablecoin_margin_list;
+    } else if (raw.data && Array.isArray(raw.data) && raw.data.length && Array.isArray(raw.data[0].list)) {
+      arr = raw.data[0].list;
+    } else if (raw.data && Array.isArray(raw.data) && raw.data.length && Array.isArray(raw.data[0].exchanges)) {
+      arr = raw.data[0].exchanges;
+    } else if (raw.data && Array.isArray(raw.data)) {
+      arr = [];
+      raw.data.forEach(d => {
+        if (Array.isArray(d)) d.forEach(i => arr.push(i));
+        else arr.push(d);
+      });
+    }
+    if (!arr || !arr.length) return null;
+    let values = arr.map(it => {
+      if (!it) return 0;
+      return Number(it.funding_rate || it.fundingRate || it.funding || it.rate || 0) || 0;
+    }).filter(n => typeof n === 'number');
+    if (!values.length) return null;
+    const sum = values.reduce((s,v) => s+v, 0);
+    return sum / values.length;
   } catch (err) {
     console.error('fetchFundingRate error', symbol, err && err.message);
     return null;
   }
 }
 
+// --- replace fetchLongShortRatio ---
 async function fetchLongShortRatio(symbol) {
   try {
-    // request recent account ratio (we ask for latest 1 point)
     const url = `/api/futures/global-long-short-account-ratio/history?symbol=${encodeURIComponent(symbol)}&limit=1`;
     const r = await retry(() => axiosCoinglass.get(url));
-    // r.data.data is array of points, pick last
-    const points = (r.data && r.data.data) || [];
+    console.log('DEBUG ratio response', symbol, JSON.stringify(r.data).slice(0,2000));
+    const raw = r.data || {};
+    let points = [];
+    if (raw.data && Array.isArray(raw.data) && raw.data.length) points = raw.data;
+    else if (Array.isArray(raw)) points = raw;
+    if (!points.length && raw.data && raw.data.points && Array.isArray(raw.data.points)) points = raw.data.points;
     if (!points.length) return null;
     const last = points[points.length - 1];
-    // docs show fields like long_short_ratio or long_ratio/short_ratio depending endpoint
-    // we try common ones:
-    const ratio = Number(last.long_short_ratio || last.long_ratio || last.ratio || last.value || 0);
-    return ratio; // typically ratio like 0.72 meaning 72% long / 28% short
+    const possible = last || {};
+    const ratio = Number(possible.long_short_ratio || possible.long_ratio || possible.ratio || possible.value || possible[1] || 0);
+    if (!Number.isFinite(ratio) || ratio === 0) return null;
+    return ratio;
   } catch (err) {
     console.error('fetchLongShortRatio error', symbol, err && err.message);
     return null;
