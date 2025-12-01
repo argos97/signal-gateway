@@ -1,9 +1,9 @@
 {
-  "name": "signal-gateway",
+  "name": "portal-de-sinalizacao",
   "version": "1.0.0",
-  "main": "server.js",
+  "main": "servidor.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node servidor.js"
   },
   "dependencies": {
     "axios": "^1.4.0",
