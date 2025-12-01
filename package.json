@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "main": "servidor.js",
   "scripts": {
-    "start": "node servidor.js"
+    "start": "node servidor.js",
+    "coinglass-bot": "node coinglass-bot.js"
   },
   "dependencies": {
     "axios": "^1.4.0",
