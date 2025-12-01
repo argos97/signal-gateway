@@ -195,4 +195,10 @@ app.post('/tv-webhook', async (req, res) => {
 });
 
 app.get('/healthz', (req,res) => res.send({ ok:true }));
+// rota raiz para evitar "Cannot GET /"
+
+app.get('/', (req, res) => {
+  res.send('Servidor online — use /healthz para testar e POST /tv-webhook para enviar sinais.');
+});
+
 app.listen(PORT, ()=>console.log('listening', PORT));
