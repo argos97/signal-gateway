@@ -1,5 +1,4 @@
 // servidor.js - versão melhorada (substitua seu servidor.js por este)
-app.set('trust proxy', 1);
 require('dotenv').config();
 const express = require('express');
 const axios = require('axios');
@@ -7,6 +6,7 @@ const crypto = require('crypto');
 const rateLimit = require('express-rate-limit');
 
 const app = express();
+app.set('trust proxy', 1); 
 app.use(express.json({ limit: '1mb' }));
 
 // Configs via ENV
